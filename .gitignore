@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 *.cnf
 .vscode/
+glucose/**/*.o
+glucose/simp/glucose
+glucose/simp/depend.mk
