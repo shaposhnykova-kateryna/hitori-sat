@@ -2,8 +2,8 @@ import subprocess
 from argparse import ArgumentParser
 
 
-def read_input_to_grid(file):
-    with open(file) as f:
+def read_input_to_grid(input_file_name):
+    with open(input_file_name) as f:
         lines = f.read().splitlines()
 
     grid = []
@@ -53,7 +53,7 @@ def encode(grid):
             for column in range(n):
                 if column + 1 < n:
                     cnf.append([white(n, row, column), white(n, row, column + 1)])
-                if row - 1 < n:
+                if row + 1 < n:
                     cnf.append([white(n, row, column), white(n, row + 1, column)])
 
     return (cnf, number_variables)
@@ -65,19 +65,19 @@ def call_solver(cnf, number_variables, output_name, solver_name, verbosity):
         for clause in cnf:
             f.write(' '.join(str(literal) for literal in clause) + " " + '0' + '\n')
 
-    return subprocess.run(['./' + solver_name, '-model', '-verb=' + str(verbosity) , output_name], stdout=subprocess.PIPE)
+    return subprocess.run([solver_name, '-model', '-verb=' + str(verbosity) , output_name], stdout=subprocess.PIPE)
 
 def glucose_result_to_model(result):
     if (result.returncode == 20):
-        return
+        return None
 
     model = []
 
     for line in result.stdout.decode('utf-8').split('\n'):
         if line.startswith("v"):  
-            vars = line.split(" ")
-            vars.remove("v")
-            model.extend(int(v) for v in vars)      
+            variables = line.split(" ")
+            variables.remove("v")
+            model.extend(int(v) for v in variables)      
     model.remove(0) 
     return model
 
@@ -92,14 +92,82 @@ def model_to_black_cells(model, n):
 
     return black_cells
 
+def print_result(grid, black_cells):
 
+    n = len(grid)
 
+    print()
+    print("##################################################################")
+    print("##################[ Solution of Hitori problem ]#################")
+    print("##################################################################")
+    print()
 
+    if black_cells is None:
+        print("This grid has no solution")
+        return
 
+    for row in range(n):
+        for column in range(n):
+            if (row, column) in black_cells:
+                print("■", end=" ")
+            else:
+                print(grid[row][column], end=" ")
+        print()
 
-               
-            
-            
+if __name__ == "__main__":
 
+    parser = ArgumentParser()
 
+    parser.add_argument(
+        "-i",
+        "--input",
+        default="input.in",
+        type=str,
+        help=(
+            "The instance file."
+        ),
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="formula.cnf",
+        type=str,
+        help=(
+            "Output file for the DIMACS format (i.e. the CNF formula)."
+        ),
+    )
+    parser.add_argument(
+        "-s",
+        "--solver",
+        default="./glucose/simp/glucose",
+        type=str,
+        help=(
+            "The SAT solver to be used."
+        ),
+    )
+    parser.add_argument(
+        "-v",
+        "--verb",
+        default=1,
+        type=int,
+        choices=range(0,2),
+        help=(
+            "Verbosity of the SAT solver used."
+        ),
+    )
+    args = parser.parse_args()
 
+    grid = (read_input_to_grid(args.input))
+
+    cnf, nr_vars = encode(grid)
+
+    result = call_solver(cnf, nr_vars, args.output, args.solver, args.verb)
+
+    model = glucose_result_to_model(result)
+
+    if model is None:
+        black_cells = None
+    else:
+        black_cells = model_to_black_cells(model, len(grid))
+
+    print_result(grid, black_cells)
