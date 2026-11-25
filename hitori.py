@@ -80,7 +80,7 @@ def glucose_result_to_model(result):
             model.extend(int(v) for v in variables)      
     model.remove(0) 
     return model
-
+ 
 def model_to_black_cells(model, n):
 
     black_cells = set()
@@ -91,6 +91,57 @@ def model_to_black_cells(model, n):
                 black_cells.add((row, column))
 
     return black_cells
+
+# if this function returns 1 component - white cells connected, if more then there are several 'islands' and whitr cells are not connected
+def find_white_components(n, black_cells):
+
+    white_cells = set()
+
+    for row in range(n):
+        for column in range(n):
+            if (row, column) not in black_cells:
+                white_cells.add((row, column))
+
+    components = []
+    visited = set()
+
+    for start in white_cells:
+        if start in visited:
+            continue
+
+        component = {start}
+        queue = [start]
+        visited.add(start)
+
+        while queue:
+            row, column = queue.pop()
+
+            for neighbor in neighbors(n, row, column):
+                if neighbor in white_cells and neighbor not in visited:
+                    visited.add(neighbor)
+                    component.add(neighbor)
+                    queue.append(neighbor)
+
+        components.append(component)
+
+    return components
+
+def neighbors(n, row, column):
+
+    result = []
+
+    if row + 1 < n:
+        result.append((row + 1, column))
+    if column + 1 < n:
+        result.append((row, column + 1))
+    if row - 1 >= 0:
+        result.append((row - 1, column))
+    if column - 1 >= 0:
+        result.append((row, column - 1))
+
+    return result
+
+
 
 def print_result(grid, black_cells):
 
