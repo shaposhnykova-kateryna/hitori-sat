@@ -27,7 +27,7 @@ def black(n, row, column):
 def white(n, row, column):
     return -cell_to_number(n, row, column)
 
-def encode(grid):
+def encode_basic_rules(grid):
 
     n = len(grid)
     number_variables = n*n # we need that for "p cnf number_variables" "number clauses"
@@ -92,6 +92,21 @@ def model_to_black_cells(model, n):
 
     return black_cells
 
+def neighbors(n, row, column):
+
+    result = []
+
+    if row + 1 < n:
+        result.append((row + 1, column))
+    if column + 1 < n:
+        result.append((row, column + 1))
+    if row - 1 >= 0:
+        result.append((row - 1, column))
+    if column - 1 >= 0:
+        result.append((row, column - 1))
+
+    return result
+
 # if this function returns 1 component - white cells connected, if more then there are several 'islands' and whitr cells are not connected
 def find_white_components(n, black_cells):
 
@@ -126,21 +141,55 @@ def find_white_components(n, black_cells):
 
     return components
 
-def neighbors(n, row, column):
+def disconnected_island_clause(n, island, other_white_cell):
+    clause = []
 
-    result = []
+    # at least one cell is black
+    for row, column in island:
+        clause.append(black(n, row, column))
 
-    if row + 1 < n:
-        result.append((row + 1, column))
-    if column + 1 < n:
-        result.append((row, column + 1))
-    if row - 1 >= 0:
-        result.append((row - 1, column))
-    if column - 1 >= 0:
-        result.append((row, column - 1))
+    # at least one cell around island is white
 
-    return result
+    border_cells = set()
 
+    for row, column in island:
+        for neighbor in neighbors(n, row, column):
+            if neighbor not in island:
+                border_cells.add(neighbor)
+
+    for row, column in border_cells:
+        clause.append(white(n, row, column))
+
+    # white cell from another component is black
+
+    clause.append(black(n, other_white_cell[0], other_white_cell[1]))
+
+    return clause
+
+
+def solve(grid, output_name, solver_name, verbosity):
+
+    n = len(grid)
+    cnf, nr_vars = encode_basic_rules(grid)
+
+    while True:
+        result = call_solver(cnf, nr_vars, output_name, solver_name, verbosity)
+        model = glucose_result_to_model(result)
+
+        if model is None: # there is no solution
+            return None
+
+        black_cells = model_to_black_cells(model, n)
+
+        components = find_white_components(n, black_cells)
+
+        if len(components) <= 1:
+            return black_cells
+
+        island = components[0]
+        other_cell = next(iter(components[1]))
+        
+        cnf.append(disconnected_island_clause(n, island, other_cell))
 
 
 def print_result(grid, black_cells):
@@ -210,15 +259,6 @@ if __name__ == "__main__":
 
     grid = (read_input_to_grid(args.input))
 
-    cnf, nr_vars = encode(grid)
-
-    result = call_solver(cnf, nr_vars, args.output, args.solver, args.verb)
-
-    model = glucose_result_to_model(result)
-
-    if model is None:
-        black_cells = None
-    else:
-        black_cells = model_to_black_cells(model, len(grid))
+    black_cells = solve(grid, args.output, args.solver, args.verb)
 
     print_result(grid, black_cells)
