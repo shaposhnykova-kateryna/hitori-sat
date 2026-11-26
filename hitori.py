@@ -1,7 +1,6 @@
 import subprocess
 from argparse import ArgumentParser
 
-
 def read_input_to_grid(input_file_name):
     with open(input_file_name) as f:
         lines = f.read().splitlines()
@@ -21,6 +20,7 @@ def read_input_to_grid(input_file_name):
 def cell_to_number(n, row, column):
     return n * row + column + 1
 
+# black square - positive variable, white square - negative
 def black(n, row, column):
     return cell_to_number(n, row, column)
 
@@ -30,7 +30,7 @@ def white(n, row, column):
 def encode_basic_rules(grid):
 
     n = len(grid)
-    number_variables = n*n # we need that for "p cnf number_variables" "number clauses"
+    number_variables = n*n 
 
     cnf = []
 
@@ -48,7 +48,7 @@ def encode_basic_rules(grid):
                     if grid[row1][column] == grid[row2][column]:
                         cnf.append([black(n, row1, column), black(n, row2, column)])
 
-    #there are no two adjacent black cells
+    # there are no two adjacent black cells
     for row in range(n):
             for column in range(n):
                 if column + 1 < n:
@@ -107,7 +107,7 @@ def neighbors(n, row, column):
 
     return result
 
-# if this function returns 1 component - white cells connected, if more then there are several 'islands' and whitr cells are not connected
+# if this function returns 1 component - white cells connected, if more then there are several 'islands' and whitу cells are not connected
 def find_white_components(n, black_cells):
 
     white_cells = set()
@@ -141,6 +141,7 @@ def find_white_components(n, black_cells):
 
     return components
 
+# Clause forbids that all its cells are white, the boundary is black, and another white cell (other_white_cell) is also white (island)
 def disconnected_island_clause(n, island, other_white_cell):
     clause = []
 
@@ -186,10 +187,12 @@ def solve(grid, output_name, solver_name, verbosity):
         if len(components) <= 1:
             return black_cells
 
-        island = components[0]
-        other_cell = next(iter(components[1]))
-        
-        cnf.append(disconnected_island_clause(n, island, other_cell))
+        # take a cell from the largest component and immediately exclude all other islands
+
+        components.sort(key=len)
+        other_cell = next(iter(components[-1]))
+        for island in components[:-1]:
+            cnf.append(disconnected_island_clause(n, island, other_cell))
 
 
 def print_result(grid, black_cells):
